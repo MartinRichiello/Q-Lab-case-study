@@ -17,6 +17,12 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.data import QUALITY_DATA
+from app.outliers import (
+    detect_dynamic_outliers,
+    detect_severity_outliers,
+    compute_defects_per_day_outliers,
+    compute_grouped_kpi_outliers,
+)
 
 # Create the actual application object. This "app" variable is what
 # the server (uvicorn) will run.
@@ -69,6 +75,53 @@ def get_defects():
     automatically converts to JSON.
     """
     return QUALITY_DATA.to_dict(orient="records")
+
+
+@app.get("/outliers")
+def get_outliers():
+    """
+    Returns outlier detection results for all monitored metrics, combining
+    both detection methods used in this project (see outliers.py for the
+    full reasoning behind each choice):
+
+    - Dynamic (statistical, mean + 2 std dev): resolution time, rework
+      time, and defects per day — metrics where "normal" can genuinely
+      shift over time/conditions.
+    - Static (fixed hard limit): severity rating — a metric with a fixed,
+      domain-defined meaning that shouldn't depend on this batch's data.
+
+    The frontend uses this to mark outlier points visually on charts, and
+    to power the "info button" explanations required by the case study
+    (each result includes the actual threshold/mean/std_dev used, not
+    just a yes/no flag).
+    """
+    return {
+        "resolution_time_days": detect_dynamic_outliers(QUALITY_DATA, "resolution_time_days"),
+        "rework_time_minutes": detect_dynamic_outliers(QUALITY_DATA, "rework_time_minutes"),
+        "defects_per_day": compute_defects_per_day_outliers(QUALITY_DATA),
+        "severity_category": detect_severity_outliers(QUALITY_DATA),
+    }
+
+
+@app.get("/kpi-outliers")
+def get_kpi_outliers(
+    group_by: str,
+    kpi_type: str,
+    std_dev_threshold: float = 2.0,
+):
+    """
+    Powers the interactive KPI monitoring panel (Task 2's "several other
+    KPIs with variable inputs" requirement). The frontend calls this with
+    the user's chosen metric and sensitivity, and gets back grouped
+    results with outlier flags computed fresh on demand.
+
+    Query parameters (sent by the frontend as URL parameters, e.g.
+    /kpi-outliers?group_by=station&kpi_type=count&std_dev_threshold=2.5):
+        group_by: which column to group by (e.g. 'station', 'reporter_name').
+        kpi_type: 'count' | 'root_cause_rate' | 'extreme_severity_rate'.
+        std_dev_threshold: sensitivity, adjustable via the frontend slider.
+    """
+    return compute_grouped_kpi_outliers(QUALITY_DATA, group_by, kpi_type, std_dev_threshold)
 
 
 

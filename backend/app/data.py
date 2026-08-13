@@ -82,6 +82,42 @@ def load_quality_data() -> pd.DataFrame:
         "Resolution Date": "resolution_date",
     })
 
+
+
+
+    # Step 2.5: fix known typos in the "station" column.
+    #
+    # WHY: while building outlier detection grouped by station, we found
+    # 6 records with clearly misspelled station names (e.g. "Axel
+    # installaiton" instead of "Axel installation"), each appearing only
+    # once, while the correctly-spelled version already exists with many
+    # occurrences. Left uncorrected, these would silently split into
+    # separate groups from their correct counterpart, subtly undercounting
+    # the real station and creating a handful of meaningless "stations"
+    # with a count of 1 each — this would distort any per-station
+    # analysis (e.g. "defects per station" outlier detection).
+    #
+    # We checked every other categorical column (reporter_name, car_model,
+    # motor_type, design_package, defect_category, part_of_car) for the
+    # same issue and found none — this appears to be isolated to `station`.
+    #
+    # We use an explicit mapping (rather than a fuzzy-matching algorithm)
+    # because it's transparent and auditable: every correction made here
+    # can be checked by eye against the original data, rather than trusting
+    # an opaque similarity score that could make an incorrect correction.
+    station_typo_corrections = {
+        "Axel installaiton": "Axel installation",
+        "EVb attery installation": "EV battery installation",
+        "Rera bumper installation": "Rear bumper installation",
+        "eRar bumper installation": "Rear bumper installation",
+        "Windhsield installation": "Windshield installation",
+        "Wire harness installtaion": "Wire harness installation",
+    }
+    df["station"] = df["station"].replace(station_typo_corrections)
+
+
+    
+
     # Step 3: add a stable unique ID per row.
     # The raw data has no single "defect ID" column, but we need one so the
     # frontend can reference a specific row later (Task 3: flagging a row).

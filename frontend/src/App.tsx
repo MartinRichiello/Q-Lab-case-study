@@ -5,7 +5,9 @@ import DefectsPerModelChart from './components/DefectsPerModelChart'
 import ResolutionTimePerReporterChart from './components/ResolutionTimePerReporterChart'
 import DefectShareByDimensionChart from './components/DefectShareByDimensionChart'
 import TopDefectsTable from './components/TopDefectsTable'
-import DefectCategoryDrilldownChart from './components/DefectCategoryDrillDownChart'
+import DefectCategoryDrilldownChart from './components/DefectCategoryDrilldownChart'
+import KpiOutlierPanel from './components/KpiOutlierPanel'
+import AnalysisSection from './components/AnalysisSection'
 
 // This describes the shape of ONE defect record coming from the backend.
 interface Defect {
@@ -30,11 +32,39 @@ interface Defect {
   rework_time_minutes: number
 }
 
+
+// Shape of ONE metric's outlier result, matching outliers.py's return shape.
+interface OutlierMetric {
+  column: string
+  method: string
+  mean: number | null
+  std_dev: number | null
+  threshold_used: number | string
+  std_dev_multiplier: number | null
+  outlier_ids?: number[]
+  outlier_dates?: string[]
+  outlier_count: number
+}
+
+interface OutlierData {
+  resolution_time_days: OutlierMetric
+  rework_time_minutes: OutlierMetric
+  defects_per_day: OutlierMetric
+  severity_category: OutlierMetric
+}
+
+
 function App() {
   const [defects, setDefects] = useState<Defect[]>([])
   const [loading, setLoading] = useState(true)
+  const [outliers, setOutliers] = useState<OutlierData | null>(null)
 
   useEffect(() => {
+    // Fetch both endpoints. We don't strictly need them sequentially, but
+    // keeping them as two independent fetch calls (rather than combining
+    // into one backend endpoint) keeps each request focused on one
+    // responsibility — raw data vs. derived outlier analysis — matching
+    // how we've kept outliers.py separate from data.py on the backend.
     fetch('http://localhost:8000/defects')
       .then((response) => response.json())
       .then((data: Defect[]) => {
@@ -45,6 +75,15 @@ function App() {
         console.error('Failed to fetch defects:', error)
         setLoading(false)
       })
+
+    fetch('http://localhost:8000/outliers')
+      .then((response) => response.json())
+      .then((data: OutlierData) => {
+        setOutliers(data)
+      })
+      .catch((error) => {
+        console.error('Failed to fetch outliers:', error)
+      })
   }, [])
 
   return (
@@ -54,13 +93,15 @@ function App() {
         <p>Loading defect data...</p>
       ) : (
         <>
-          <DefectTable defects={defects} />
-          <DefectsPerDayChart defects={defects} />
+          <DefectTable defects={defects} outliers={outliers} />
+          <AnalysisSection />
+          <DefectsPerDayChart defects={defects} outliers={outliers} />
           <DefectsPerModelChart defects={defects} />
           <ResolutionTimePerReporterChart defects={defects} />
           <DefectShareByDimensionChart defects={defects} />
           <TopDefectsTable defects={defects} />
           <DefectCategoryDrilldownChart defects={defects} />
+          <KpiOutlierPanel />
         </>
         
       )}

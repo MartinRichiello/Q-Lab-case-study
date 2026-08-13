@@ -1,22 +1,34 @@
 import {
   BarChart,
   Bar,
+  Cell,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
 } from 'recharts'
+import InfoButton from './InfoButton'
 
 interface Defect {
   date: string
 }
 
-interface DefectsPerDayChartProps {
-  defects: Defect[]
+interface OutlierMetric {
+  outlier_dates?: string[]
 }
 
-function DefectsPerDayChart({ defects }: DefectsPerDayChartProps) {
+interface OutlierData {
+  defects_per_day: OutlierMetric
+}
+
+interface DefectsPerDayChartProps {
+  defects: Defect[]
+  outliers: OutlierData | null
+}
+
+
+function DefectsPerDayChart({ defects, outliers }: DefectsPerDayChartProps) {
   // --- Step 1: aggregate raw records into { date, count } pairs ---
   //
   // We use a plain JS object as a "counter": for each defect, extract just
@@ -40,16 +52,36 @@ function DefectsPerDayChart({ defects }: DefectsPerDayChartProps) {
     .map(([date, count]) => ({ date, count }))
     .sort((a, b) => a.date.localeCompare(b.date))
 
+  // Set of dates flagged as outlier days, for fast lookup while coloring bars.
+  const outlierDates = new Set(outliers?.defects_per_day.outlier_dates ?? [])
+
+
   return (
     <div>
-      <h2>Defects per Day</h2>
+      <h2>
+        Defects per Day
+        <InfoButton
+          lines={[
+            'A day is marked as unusual if its total defect count exceeds the average daily count plus 2 standard deviations.',
+            `Currently: average ≈ ${Math.round(chartData.reduce((sum, d) => sum + d.count, 0) / chartData.length)} defects/day.`,
+            'This threshold adapts automatically if overall defect volume changes over time, rather than relying on a fixed number chosen in advance.',
+          ]}
+        />
+      </h2>
       <ResponsiveContainer width="100%" height={300}>
         <BarChart data={chartData}>
           <CartesianGrid strokeDasharray="3 3" />
           <XAxis dataKey="date" tick={{ fontSize: 10 }} />
           <YAxis />
           <Tooltip />
-          <Bar dataKey="count" fill="#3b6ea5" />
+          <Bar dataKey="count">
+            {chartData.map((entry) => (
+              <Cell
+                key={entry.date}
+                fill={outlierDates.has(entry.date) ? '#c0392b' : '#3b6ea5'}
+              />
+            ))}
+          </Bar>
         </BarChart>
       </ResponsiveContainer>
     </div>
