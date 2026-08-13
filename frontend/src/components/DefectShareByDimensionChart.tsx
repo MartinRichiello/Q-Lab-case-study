@@ -81,7 +81,13 @@ function DefectShareByDimensionChart({ defects }: DefectShareByDimensionChartPro
             // Shows "ModelName: 24%" directly on each slice, so precision
             // isn't lost compared to a bar chart's exact axis reading.
             label={(props: { name?: string; value?: number }) =>
-              `${props.name}: ${props.value}%`
+              // Only label slices with enough room to avoid overlap —
+              // smaller slices are still identifiable via the Legend
+              // below the chart and the Tooltip on hover.
+              (props.value ?? 0) >= 8 ? `${props.name}: ${props.value}%` : ''
+            }
+            labelLine={
+              ((props: any) => (props.value ?? 0) >= 8) as unknown as boolean
             }
           >
             {chartData.map((_, index) => (

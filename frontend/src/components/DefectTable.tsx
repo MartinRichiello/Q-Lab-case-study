@@ -1,5 +1,3 @@
-
-
 import {
   useReactTable,
   getCoreRowModel,
@@ -12,10 +10,9 @@ import {
 } from '@tanstack/react-table'
 import { useState } from 'react'
 import InfoButton from './InfoButton'
+import { useFlags } from '../context/FlagContext'
+import FlagModal from './FlagModal'
 
-// Same shape as in App.tsx. In a bigger project we'd put this type in its
-// own shared file (e.g. types.ts) to avoid repeating it — we'll do that
-// once we have a second component that also needs it.
 interface Defect {
   defect_id: number
   date: string
@@ -29,8 +26,6 @@ interface Defect {
   reporter_name: string
 }
 
-// The component receives the defect list as a "prop" — data owned and
-// fetched by App.tsx, just passed down here for display.
 interface OutlierMetric {
   outlier_ids?: number[]
   outlier_dates?: string[]
@@ -48,15 +43,43 @@ interface DefectTableProps {
   outliers: OutlierData | null
 }
 
-// Column definitions: this tells TanStack Table WHICH fields to show,
-// what header label to use, and (implicitly) enables sorting on each,
-// since we're not disabling it per-column.
+// A small standalone component for the per-row flag button. It reads/writes
+// the shared FlagContext directly, and manages its OWN "is my modal open"
+// state — this keeps DefectTable itself simpler, since it doesn't need to
+// track which row's modal is open globally.
+function FlagActionCell({ defectId }: { defectId: number }) {
+  const { isFlagged } = useFlags()
+  const [modalOpen, setModalOpen] = useState(false)
+  const flagged = isFlagged(defectId)
+
+  return (
+    <>
+      <button
+        onClick={() => setModalOpen(true)}
+        style={{
+          backgroundColor: flagged ? 'var(--color-outlier)' : '#888',
+          borderColor: flagged ? 'var(--color-outlier)' : '#888',
+          fontSize: '0.75rem',
+          padding: '0.3rem 0.6rem',
+        }}
+      >
+        {flagged ? 'Flagged' : 'Flag'}
+      </button>
+      {modalOpen && (
+        <FlagModal
+          defectId={defectId}
+          label={`Defect #${defectId}`}
+          onClose={() => setModalOpen(false)}
+        />
+      )}
+    </>
+  )
+}
+
 const columns: ColumnDef<Defect>[] = [
   {
     accessorKey: 'date',
     header: 'Date',
-    // Dates arrive as full ISO strings (e.g. "2025-07-03T00:00:00").
-    // We format them to just the date part for readability.
     cell: (info) => new Date(info.getValue() as string).toLocaleDateString(),
   },
   { accessorKey: 'defect_name', header: 'Defect' },
@@ -66,46 +89,34 @@ const columns: ColumnDef<Defect>[] = [
   {
     accessorKey: 'resolution_time_days',
     header: 'Resolution (days)',
-    // Missing resolution time means the defect is still unresolved —
-    // we show that explicitly instead of a blank cell, since silently
-    // showing nothing could be mistaken for a data error rather than
-    // a meaningful "still open" status.
     cell: (info) => info.getValue() ?? 'Unresolved',
   },
   { accessorKey: 'rework_time_minutes', header: 'Rework (min)' },
   { accessorKey: 'defect_category', header: 'Category' },
   { accessorKey: 'reporter_name', header: 'Reporter' },
+  {
+    id: 'flag_action',
+    header: 'Flag',
+    // This column has no matching data field — it's a button per row,
+    // so we access the whole row via info.row instead of accessorKey.
+    cell: (info) => <FlagActionCell defectId={info.row.original.defect_id} />,
+  },
 ]
 
 function DefectTable({ defects, outliers }: DefectTableProps) {
-  // Holds which column is currently sorted, and in which direction.
-  // This is TanStack Table's required state for enabling sorting.
   const [sorting, setSorting] = useState<SortingState>([])
   const [globalFilter, setGlobalFilter] = useState('')
 
-
-
-  // Build a Set of defect_ids flagged by ANY outlier metric, for fast
-  // O(1) lookup per row instead of searching an array on every render.
-  // A Set is the right tool here specifically because we only need to
-  // ask "is this ID in here?" — not iterate or sort it.
   const resolutionOutlierIds = new Set(outliers?.resolution_time_days.outlier_ids ?? [])
   const reworkOutlierIds = new Set(outliers?.rework_time_minutes.outlier_ids ?? [])
   const severityOutlierIds = new Set(outliers?.severity_category.outlier_ids ?? [])
 
-  // A row gets the light background tint if it's flagged by ANY metric,
-  // for quick scanning. Which SPECIFIC cell turns red text is decided
-  // per-column below, so the reason is immediately clear, not just "something's off".
   const isRowFlagged = (defectId: number) =>
     resolutionOutlierIds.has(defectId) ||
     reworkOutlierIds.has(defectId) ||
     severityOutlierIds.has(defectId)
 
-    
-
-  
-
- const table = useReactTable({
+  const table = useReactTable({
     data: defects,
     columns,
     state: { sorting, globalFilter },
@@ -118,8 +129,9 @@ function DefectTable({ defects, outliers }: DefectTableProps) {
     initialState: { pagination: { pageSize: 15 } },
   })
 
-   return (
-    <div>
+  return (
+    <div className="card">
+      <div style={{ overflowX: 'auto' }}>
         <h2>
           Defect Records
           <InfoButton
@@ -133,86 +145,74 @@ function DefectTable({ defects, outliers }: DefectTableProps) {
           />
         </h2>
         <input
-            type="text"
-            placeholder="Search defects..."
-            value={globalFilter}
-            onChange={(e) => setGlobalFilter(e.target.value)}
-            style={{ marginBottom: '1rem', padding: '0.5rem', width: '300px' }}
+          type="text"
+          placeholder="Search defects..."
+          value={globalFilter}
+          onChange={(e) => setGlobalFilter(e.target.value)}
+          style={{ marginBottom: '1rem', padding: '0.5rem', width: '300px' }}
         />
-      <table>
-        <thead>
-          {table.getHeaderGroups().map((headerGroup) => (
-            <tr key={headerGroup.id}>
-              {headerGroup.headers.map((header) => (
-                <th
-                  key={header.id}
-                  onClick={header.column.getToggleSortingHandler()}
-                  style={{ cursor: 'pointer' }}
-                >
-                  {flexRender(header.column.columnDef.header, header.getContext())}
-                  {{ asc: ' ↑', desc: ' ↓' }[header.column.getIsSorted() as string] ?? ''}
-                </th>
-              ))}
-            </tr>
-          ))}
-        </thead>
-        <tbody>
-          {table.getRowModel().rows.map((row) => {
-          const defectId = row.original.defect_id
-          const flagged = isRowFlagged(defectId)
-
-          return (
-            <tr
-              key={row.id}
-              style={flagged ? { backgroundColor: '#fdf2f2' } : undefined}
-            >
-              {row.getVisibleCells().map((cell) => {
-                // Determine if THIS SPECIFIC cell is the one that triggered
-                // a flag, based on which column it belongs to.
-                const columnId = cell.column.id
-                const isFlaggedCell =
-                  (columnId === 'resolution_time_days' && resolutionOutlierIds.has(defectId)) ||
-                  (columnId === 'rework_time_minutes' && reworkOutlierIds.has(defectId)) ||
-                  (columnId === 'severity_rating' && severityOutlierIds.has(defectId))
-                  // Note: rework_time_minutes isn't currently a visible
-                  // column in this table, so it can't be highlighted at
-                  // the cell level yet — it still contributes to the row
-                  // tint via isRowFlagged above.
-
-                return (
-                  <td
-                    key={cell.id}
-                    style={
-                      isFlaggedCell
-                        ? { color: '#c0392b', fontWeight: 'bold' }
-                        : undefined
-                    }
+        <table>
+          <thead>
+            {table.getHeaderGroups().map((headerGroup) => (
+              <tr key={headerGroup.id}>
+                {headerGroup.headers.map((header) => (
+                  <th
+                    key={header.id}
+                    onClick={header.column.getToggleSortingHandler()}
+                    style={{ cursor: 'pointer' }}
                   >
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </td>
-                )
-              })}
-            </tr>
-          )
-        })}
-      </tbody>
-      </table>
+                    {flexRender(header.column.columnDef.header, header.getContext())}
+                    {{ asc: ' ↑', desc: ' ↓' }[header.column.getIsSorted() as string] ?? ''}
+                  </th>
+                ))}
+              </tr>
+            ))}
+          </thead>
+          <tbody>
+            {table.getRowModel().rows.map((row) => {
+              const defectId = row.original.defect_id
+              const flagged = isRowFlagged(defectId)
 
-      {/* Pagination controls */}
+              return (
+                <tr
+                  key={row.id}
+                  style={flagged ? { backgroundColor: '#fdf2f2' } : undefined}
+                >
+                  {row.getVisibleCells().map((cell) => {
+                    const columnId = cell.column.id
+                    const isFlaggedCell =
+                      (columnId === 'resolution_time_days' && resolutionOutlierIds.has(defectId)) ||
+                      (columnId === 'rework_time_minutes' && reworkOutlierIds.has(defectId)) ||
+                      (columnId === 'severity_rating' && severityOutlierIds.has(defectId))
+
+                    return (
+                      <td
+                        key={cell.id}
+                        style={
+                          isFlaggedCell
+                            ? { color: '#c0392b', fontWeight: 'bold' }
+                            : undefined
+                        }
+                      >
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </td>
+                    )
+                  })}
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+
       <div style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-        <button
-          onClick={() => table.previousPage()}
-          disabled={!table.getCanPreviousPage()}
-        >
+        <button onClick={() => table.previousPage()} disabled={!table.getCanPreviousPage()}>
           Previous
         </button>
         <span>
           Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}
         </span>
-        <button
-          onClick={() => table.nextPage()}
-          disabled={!table.getCanNextPage()}
-        >
+        <button onClick={() => table.nextPage()} disabled={!table.getCanNextPage()}>
           Next
         </button>
       </div>

@@ -24,6 +24,27 @@ from app.outliers import (
     compute_grouped_kpi_outliers,
 )
 
+from app.ai_suggestion import get_ai_suggestion
+from pydantic import BaseModel
+
+
+
+
+class AiSuggestionRequest(BaseModel):
+    """
+    Defines the expected shape of the POST body for /ai-suggestion.
+    FastAPI uses this (via pydantic) to automatically validate incoming
+    requests — if the frontend sends a request missing one of these
+    fields, or with the wrong type, FastAPI rejects it with a clear
+    error before our code even runs, rather than crashing unexpectedly
+    partway through get_ai_suggestion().
+    """
+    defect_name: str
+    station: str
+    category: str
+    note: str
+
+
 # Create the actual application object. This "app" variable is what
 # the server (uvicorn) will run.
 app = FastAPI(title="Q Lab Quality Dashboard API")
@@ -124,6 +145,23 @@ def get_kpi_outliers(
     return compute_grouped_kpi_outliers(QUALITY_DATA, group_by, kpi_type, std_dev_threshold)
 
 
+
+
+@app.post("/ai-suggestion")
+def post_ai_suggestion(request: AiSuggestionRequest):
+    """
+    Task 5: Embed Gen AI. Takes context from a flagged defect (station,
+    category, name, and the user's own note) and returns a structured,
+    short root-cause suggestion. Currently backed by a mock implementation
+    (see ai_suggestion.py) — designed to swap in a real LLM API call
+    later without changing this endpoint's shape.
+    """
+    return get_ai_suggestion(
+        defect_name=request.defect_name,
+        station=request.station,
+        category=request.category,
+        note=request.note,
+    )
 
 
 ##cd backend

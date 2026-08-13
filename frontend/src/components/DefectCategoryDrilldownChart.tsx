@@ -123,7 +123,13 @@ function DefectCategoryDrilldownChart({ defects }: DefectCategoryDrilldownChartP
             innerRadius={70}
             outerRadius={110}
             label={(props: { name?: string; value?: number }) =>
-              `${props.name}: ${props.value}%`
+              // Only label slices with enough room to avoid overlap —
+              // smaller slices are still identifiable via the Legend
+              // below the chart and the Tooltip on hover.
+              (props.value ?? 0) >= 8 ? `${props.name}: ${props.value}%` : ''
+            }
+            labelLine={
+              ((props: any) => (props.value ?? 0) >= 8) as unknown as boolean
             }
           >
             {chartData.map((_, index) => (

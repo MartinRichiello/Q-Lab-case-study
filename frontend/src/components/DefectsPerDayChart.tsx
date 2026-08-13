@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import {
   BarChart,
   Bar,
@@ -9,6 +10,8 @@ import {
   ResponsiveContainer,
 } from 'recharts'
 import InfoButton from './InfoButton'
+import { useFlags } from '../context/FlagContext'
+import FlagModal from './FlagModal'
 
 interface Defect {
   date: string
@@ -27,37 +30,40 @@ interface DefectsPerDayChartProps {
   outliers: OutlierData | null
 }
 
-
 function DefectsPerDayChart({ defects, outliers }: DefectsPerDayChartProps) {
+  const { isFlagged } = useFlags()
+  const [flaggingDate, setFlaggingDate] = useState<string | null>(null)
+
+  // Dates aren't defect IDs, but FlagContext expects a numeric ID. We
+  // convert a date string into a stable, unique negative number (so it
+  // can never collide with a real defect_id, which are always >= 0).
+  // This is a pragmatic workaround rather than redesigning FlagContext
+  // to support multiple ID "kinds" under time pressure — documented here
+  // as a known limitation/shortcut for the write-up.
+  const dateToFlagId = (date: string) => {
+    let hash = 0
+    for (let i = 0; i < date.length; i++) {
+      hash = (hash * 31 + date.charCodeAt(i)) | 0
+    }
+    return -Math.abs(hash) - 1 // always negative, never 0
+  }
+
   // --- Step 1: aggregate raw records into { date, count } pairs ---
-  //
-  // We use a plain JS object as a "counter": for each defect, extract just
-  // the date part (dropping the time), and increment that date's count.
-  // This is the standard pattern for turning row-level data into
-  // chart-ready summary data.
   const countsByDate: Record<string, number> = {}
 
   for (const defect of defects) {
-    // defect.date arrives as a full ISO string, e.g. "2025-07-03T00:00:00".
-    // We only want the date part, so we split on 'T' and keep the first piece.
     const dateOnly = defect.date.split('T')[0]
     countsByDate[dateOnly] = (countsByDate[dateOnly] || 0) + 1
   }
 
-  // Recharts expects an ARRAY of objects, not the object-as-counter shape
-  // we just built. We convert it here, and sort chronologically so the
-  // chart reads left-to-right in date order (object key order isn't
-  // guaranteed to be sorted).
   const chartData = Object.entries(countsByDate)
     .map(([date, count]) => ({ date, count }))
     .sort((a, b) => a.date.localeCompare(b.date))
 
-  // Set of dates flagged as outlier days, for fast lookup while coloring bars.
   const outlierDates = new Set(outliers?.defects_per_day.outlier_dates ?? [])
 
-
   return (
-    <div>
+    <div className="card">
       <h2>
         Defects per Day
         <InfoButton
@@ -65,6 +71,7 @@ function DefectsPerDayChart({ defects, outliers }: DefectsPerDayChartProps) {
             'A day is marked as unusual if its total defect count exceeds the average daily count plus 2 standard deviations.',
             `Currently: average ≈ ${Math.round(chartData.reduce((sum, d) => sum + d.count, 0) / chartData.length)} defects/day.`,
             'This threshold adapts automatically if overall defect volume changes over time, rather than relying on a fixed number chosen in advance.',
+            'Click any bar to flag that day for follow-up — flagged days appear in purple and show up in the Flagged Items Tracker.',
           ]}
         />
       </h2>
@@ -74,16 +81,29 @@ function DefectsPerDayChart({ defects, outliers }: DefectsPerDayChartProps) {
           <XAxis dataKey="date" tick={{ fontSize: 10 }} />
           <YAxis />
           <Tooltip />
-          <Bar dataKey="count">
+          <Bar dataKey="count" onClick={(data: any) => setFlaggingDate(data.date)} cursor="pointer">
             {chartData.map((entry) => (
               <Cell
                 key={entry.date}
-                fill={outlierDates.has(entry.date) ? '#c0392b' : '#3b6ea5'}
+                fill={
+                  isFlagged(dateToFlagId(entry.date))
+                    ? '#8e44ad' // distinct purple: "user-flagged", separate from red "statistical outlier"
+                    : outlierDates.has(entry.date)
+                    ? '#c0392b'
+                    : 'var(--color-primary)'
+                }
               />
             ))}
           </Bar>
         </BarChart>
       </ResponsiveContainer>
+      {flaggingDate && (
+        <FlagModal
+          defectId={dateToFlagId(flaggingDate)}
+          label={`Day: ${flaggingDate}`}
+          onClose={() => setFlaggingDate(null)}
+        />
+      )}
     </div>
   )
 }

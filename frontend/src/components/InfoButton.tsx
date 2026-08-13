@@ -1,10 +1,6 @@
 import { useState } from 'react'
 
 interface InfoButtonProps {
-  // Accepts an array of strings — each one rendered as its own line/bullet.
-  // Using an array (rather than one long string) is what makes "each
-  // bullet point takes a line of space" trivial to guarantee, regardless
-  // of how long an individual line's text is.
   lines: string[]
 }
 
@@ -20,13 +16,16 @@ function InfoButton({ lines }: InfoButtonProps) {
           width: '22px',
           height: '22px',
           borderRadius: '50%',
-          border: '1px solid #888',
-          backgroundColor: isOpen ? '#3b6ea5' : '#f0f0f0',
-          color: isOpen ? '#fff' : '#333',
+          border: '1px solid var(--color-primary)',
+          backgroundColor: isOpen ? 'var(--color-primary)' : '#f0f0f0',
+          color: isOpen ? '#fff' : 'var(--color-primary)',
           cursor: 'pointer',
-          fontSize: '0.8rem',
+          fontSize: '0.75rem',
           fontWeight: 'bold',
-          lineHeight: 1,
+          padding: 0,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
         }}
       >
         ?
@@ -51,10 +50,6 @@ function InfoButton({ lines }: InfoButtonProps) {
           }}
         >
           {lines.map((line, index) => (
-            // Each line is its own block-level element, guaranteeing it
-            // occupies its own row regardless of length — rather than
-            // relying on manual line breaks inside one string, which
-            // would be fragile if the text ever gets edited.
             <div key={index} style={{ marginBottom: index < lines.length - 1 ? '0.5rem' : 0 }}>
               {line}
             </div>

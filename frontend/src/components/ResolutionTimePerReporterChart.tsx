@@ -55,7 +55,7 @@ function ResolutionTimePerReporterChart({ defects }: ResolutionTimePerReporterCh
           <XAxis dataKey="reporter_name" />
           <YAxis />
           <Tooltip />
-          <Bar dataKey="avg_resolution_days" fill="#3ba55d" />
+          <Bar dataKey="avg_resolution_days" fill="var(--color-secondary)" barSize={45} />
         </BarChart>
       </ResponsiveContainer>
     </div>

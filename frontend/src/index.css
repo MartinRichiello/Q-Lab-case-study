@@ -1,10 +1,161 @@
+/* ===== Design tokens (BMW-inspired palette) ===== */
+:root {
+  --color-primary: #0066b1;       /* BMW blue — headers, active states, primary accents */
+  --color-primary-dark: #004d85;  /* hover/pressed states */
+  --color-secondary: #1f3a5f;     /* deep navy — same blue family as primary, used for chart variety */
+  --color-accent-teal: #1a7a8c;   /* a muted teal-blue, complementary to primary, for chart variety without clashing */
+  --color-text: #1a1a1a;          /* main text, near-black */
+  --color-text-muted: #6f6f6f;    /* secondary text, captions, info-button body text */
+  --color-bg: #f4f4f4;            /* page background */
+  --color-card-bg: #ffffff;       /* card/section backgrounds */
+  --color-border: #e0e0e0;        /* card borders, dividers */
+  --color-outlier: #c0392b;       /* reserved ONLY for flagged/outlier data — never decorative */
+
+  --font-family: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+
+  --radius: 10px;
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+
+  --max-content-width: 1200px;
+}
+
 * {
   box-sizing: border-box;
 }
 
 body {
   margin: 0;
-  font-family: system-ui, -apple-system, sans-serif;
-  background-color: #f5f6f8;
-  color: #1a1a1a;
+  font-family: var(--font-family);
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  line-height: 1.5;
+}
+
+h1, h2, h3 {
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+h2 {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 1.25rem;
+  margin-top: 0;
+}
+
+/* ===== Layout ===== */
+
+/* The single wrapper that keeps content centered with consistent gutters,
+   instead of stretching edge-to-edge on wide screens or sitting flush
+   against the browser edge on narrow ones. */
+.page-container {
+  max-width: var(--max-content-width);
+  margin: 0 auto;
+  padding: 1.5rem 1.25rem 4rem;
+}
+
+/* Every chart/table/panel gets wrapped in this — consistent spacing,
+   a visible boundary, and a subtle shadow so sections read as distinct
+   "cards" rather than content just stacking with no separation. */
+.card {
+  background-color: var(--color-card-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
+  padding: 1.25rem 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+/* ===== Shared form controls (dropdowns, inputs, buttons) ===== */
+
+select,
+input[type='text'] {
+  font-family: inherit;
+  font-size: 0.9rem;
+  padding: 0.45rem 0.7rem;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background-color: #fff;
+  color: var(--color-text);
+}
+
+select:focus,
+input[type='text']:focus {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 1px;
+}
+
+button {
+  font-family: inherit;
+  font-size: 0.85rem;
+  padding: 0.45rem 0.9rem;
+  border: 1px solid var(--color-primary);
+  border-radius: 6px;
+  background-color: var(--color-primary);
+  color: #fff;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+button:hover:not(:disabled) {
+  background-color: var(--color-primary-dark);
+}
+
+button:disabled {
+  background-color: #ccc;
+  border-color: #ccc;
+  cursor: not-allowed;
+}
+
+/* ===== Table ===== */
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+th {
+  text-align: left;
+  padding: 0.6rem 0.75rem;
+  background-color: var(--color-bg);
+  border-bottom: 2px solid var(--color-border);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+td {
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+
+/* ===== Responsive adjustments for narrower screens ===== */
+@media (max-width: 768px) {
+  .page-container {
+    padding: 1rem 0.75rem 3rem;
+  }
+
+  .card {
+    padding: 1rem;
+    border-radius: 8px;
+  }
+
+  h1 {
+    font-size: 1.4rem;
+  }
+
+  h2 {
+    font-size: 1.05rem;
+  }
+
+  table {
+    font-size: 0.8rem;
+  }
+
+  th,
+  td {
+    padding: 0.4rem 0.5rem;
+  }
 }

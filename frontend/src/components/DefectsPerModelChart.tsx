@@ -41,7 +41,7 @@ function DefectsPerModelChart({ defects }: DefectsPerModelChartProps) {
           <XAxis dataKey="car_model" />
           <YAxis />
           <Tooltip />
-          <Bar dataKey="count" fill="#a53b3b" />
+          <Bar dataKey="count" fill="var(--color-primary)" barSize={45} />
         </BarChart>
       </ResponsiveContainer>
     </div>

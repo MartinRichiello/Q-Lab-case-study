@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { FlagProvider } from './context/FlagContext'
 import DefectTable from './components/DefectTable'
 import DefectsPerDayChart from './components/DefectsPerDayChart'
 import DefectsPerModelChart from './components/DefectsPerModelChart'
@@ -8,6 +9,8 @@ import TopDefectsTable from './components/TopDefectsTable'
 import DefectCategoryDrilldownChart from './components/DefectCategoryDrilldownChart'
 import KpiOutlierPanel from './components/KpiOutlierPanel'
 import AnalysisSection from './components/AnalysisSection'
+import FlaggedItemsPanel from './components/FlaggedItemsPanel'
+import ReflectionSection from './components/ReflectionSection'
 
 // This describes the shape of ONE defect record coming from the backend.
 interface Defect {
@@ -60,11 +63,6 @@ function App() {
   const [outliers, setOutliers] = useState<OutlierData | null>(null)
 
   useEffect(() => {
-    // Fetch both endpoints. We don't strictly need them sequentially, but
-    // keeping them as two independent fetch calls (rather than combining
-    // into one backend endpoint) keeps each request focused on one
-    // responsibility — raw data vs. derived outlier analysis — matching
-    // how we've kept outliers.py separate from data.py on the backend.
     fetch('http://localhost:8000/defects')
       .then((response) => response.json())
       .then((data: Defect[]) => {
@@ -87,13 +85,15 @@ function App() {
   }, [])
 
   return (
-    <div>
+    <FlagProvider>
+    <div className="page-container">
       <h1>Q Lab Quality Dashboard</h1>
       {loading ? (
         <p>Loading defect data...</p>
       ) : (
         <>
           <DefectTable defects={defects} outliers={outliers} />
+          <FlaggedItemsPanel defects={defects} />
           <AnalysisSection />
           <DefectsPerDayChart defects={defects} outliers={outliers} />
           <DefectsPerModelChart defects={defects} />
@@ -102,10 +102,12 @@ function App() {
           <TopDefectsTable defects={defects} />
           <DefectCategoryDrilldownChart defects={defects} />
           <KpiOutlierPanel />
+          <ReflectionSection />
         </>
         
       )}
     </div>
+    </FlagProvider>
   )
 }
 
